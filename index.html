@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ayudante de Lectoescritura</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Tu Ayudante para Leer y Escribir</h1>
+
+        <div class="camera-section">
+            <div class="camera-controls">
+                <button id="open-camera"><i class="fas fa-camera"></i> Activar Cámara</button>
+                <button id="capture-btn" disabled><i class="fas fa-magic"></i> Capturar Texto</button>
+                <button id="flip-camera" disabled><i class="fas fa-sync-alt"></i> Cambiar Cámara</button>
+            </div>
+             <div class="camera-preview-container">
+                <div class="camera-guide">Apunta al texto</div>
+                <video id="camera-view" autoplay playsinline></video>
+                <canvas id="camera-canvas"></canvas>
+                <div id="capture-flash" class="capture-flash"></div>
+            </div>
+             <div id="ocr-status" class="ocr-status" style="text-align: center; padding: 10px; display: none;"></div>
+        </div>
+
+        <div class="text-input">
+            <div class="label-container">
+                <label for="input-text">Texto leído o escrito:</label>
+                <button id="dictate-button" class="small-icon-button" aria-label="Dictar texto"><i class="fas fa-microphone"></i></button>
+            </div>
+            <textarea id="input-text" rows="6" placeholder="Aquí aparecerá el texto de la cámara o puedes escribir/dictar..."></textarea>
+            <button id="check-text-btn" style="margin-top: 10px; width: auto; background-color: var(--success-color); display: none;"><i class="fas fa-check"></i> Revisar Texto</button>
+        </div>
+
+        <div class="text-output">
+            <label>Texto Revisado:</label>
+            <div id="output-text" class="output-display"></div>
+        </div>
+
+         <div id="api-status" class="api-status"></div>
+
+        <div class="stats">
+            <span id="error-count">0 errores</span>
+        </div>
+
+        <section class="ai-section">
+             <h2><i class="fas fa-graduation-cap"></i> Zona de Aprendizaje</h2>
+            <div class="ai-tabs">
+                <button class="ai-tab" id="suggestions-tab"><i class="fas fa-lightbulb"></i> Consejos</button>
+                <button class="ai-tab" id="exercises-tab"><i class="fas fa-pencil-ruler"></i> Ejercicios</button>
+                <button class="ai-tab" id="progress-tab"><i class="fas fa-chart-line"></i> Mis Avances</button>
+            </div>
+
+            <div id="ai-suggestions" class="ai-tabcontent">
+                <h3><i class="fas fa-comment-dots"></i> Consejos de Profe Amigo</h3>
+                <p>Revisa tu texto y aquí aparecerán explicaciones.</p>
+                <div id="ai-feedback" class="ai-feedback"></div>
+            </div>
+
+            <div id="ai-exercises" class="ai-tabcontent">
+                <h3><i class="fas fa-pencil-ruler"></i> Ejercicios para Practicar</h3>
+                 <p>Genera ejercicios basados en el texto.</p>
+                <button id="generate-exercises-btn" class="ai-button"><i class="fas fa-plus-circle"></i> Crear Nuevos Ejercicios</button>
+                <div id="exercises-container"></div>
+            </div>
+
+            <div id="ai-progress" class="ai-tabcontent">
+                <h3><i class="fas fa-star"></i> Mis Avances</h3>
+                <div class="progress-metrics">
+                    <div class="metric"><span class="metric-value" id="user-level">Inicial</span><span class="metric-label">Nivel</span></div>
+                    <div class="metric"><span class="metric-value" id="streak-count">0</span><span class="metric-label">Racha</span></div>
+                </div>
+                 <div id="practice-areas-list" class="practice-suggestion" style="display: none;"></div>
+                <div id="achievements-badge" style="margin-top: 15px; text-align: center;"></div>
+            </div>
+        </section>
+
+        <section class="chat-section">
+            <h2><i class="fas fa-comments"></i> Chat Rápido</h2>
+            <div id="chat-messages" class="chat-messages"></div>
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Escribe tu pregunta..." aria-label="Entrada chat">
+                <button id="talk-button" aria-label="Hablar al chatbot"><i class="fas fa-microphone"></i></button>
+                <button id="chat-send-btn" aria-label="Enviar chat"><i class="fas fa-paper-plane"></i> Enviar</button>
+            </div>
+        </section>
+
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@latest/dist/tesseract.min.js'></script>
+    <script src="ia/userProfile.js"></script>
+    <script src="ia/languageAnalysis.js"></script>
+    <script src="ia/exercisesGenerator.js"></script>
+    <script src="script.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM Cargado. App lista.');
+            const generateBtn = document.getElementById('generate-exercises-btn');
+            const inputTextElem = document.getElementById('input-text');
+            if (generateBtn && inputTextElem) {
+                 if (typeof ExerciseGenerator !== 'undefined') {
+                     const exerciseGenerator = new ExerciseGenerator();
+                     generateBtn.addEventListener('click', async () => {
+                         const text = inputTextElem.value;
+                         if (text && text.trim().length >= 10) {
+                             generateBtn.disabled = true; generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creando...';
+                             try { await exerciseGenerator.generateExercises(text); }
+                             finally { generateBtn.disabled = false; generateBtn.innerHTML = '<i class="fas fa-plus-circle"></i> Crear Nuevos Ejercicios'; }
+                         } else { alert('Escribe o captura texto primero.'); }
+                     });
+                 } else { console.error("Clase ExerciseGenerator no definida."); }
+            } else { console.error('Botón/área texto ejercicios no encontrado.'); }
+        });
+    </script>
+</body>
+</html>
